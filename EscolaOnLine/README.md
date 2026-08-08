@@ -34,3 +34,35 @@ Requisitos técnicos:
 
 4. Executar a aplicação
 > dotnet run
+
+
+Tabelas:
+
+1. Courses
+   - Id (PK, int)
+   - Titulo (string, max 100, required)
+   - Descricao (string, required)
+   - Categoria (string, max 30, required) → índice
+   - CargaHoraria (int, required, > 0) 
+   - DataCriacao (datetime)
+   - IsDeleted (bool)
+
+2. Students
+   - Id (PK, int)
+   - NomeCompleto (string, max 100, required)
+   - Email (string, unique, required)
+   - UserId (string, FK → AspNetUsers, required)
+   - DataCadastro (datetime)
+   - IsDeleted (bool)
+
+3. Enrollments (tabela de junção explícita)
+   - CourseId (PK, FK → Courses)
+   - StudentId (PK, FK → Students)
+   - Status (enum: Ativo/Cancelado)
+   - DataMatricula (datetime)
+   - IsDeleted (bool)
+
+Regras de negócio:
+- Um aluno não pode se matricular duas vezes no mesmo curso (PK composta)
+- Email do aluno deve ser único
+- Carga horária deve ser > 0 e em segundos
