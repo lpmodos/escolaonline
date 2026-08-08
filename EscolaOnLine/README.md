@@ -66,3 +66,70 @@ Regras de negócio:
 - Um aluno não pode se matricular duas vezes no mesmo curso (PK composta)
 - Email do aluno deve ser único
 - Carga horária deve ser > 0 e em segundos
+
+
+## 🔐 Autenticação (JWT)
+
+A API utiliza **ASP.NET Core Identity** + **JWT Bearer** para autenticação.
+
+### Roles disponíveis
+- `Admin`
+- `Instructor`
+- `Student`
+
+### Endpoints de Autenticação
+
+#### 1. Registrar novo usuário
+- **Método:** `POST`
+- **Rota:** `/user/cadastrar`
+- **Autenticação:** Não requer
+- **Body (JSON):**
+```json
+{
+  "email": "aluno@email.com",
+  "password": "Senha@123",
+  "nomeCompleto": "João da Silva",
+  "role": "Student"
+}
+- ** Resposta: 201 **
+```json
+{
+   "message": "Usuário registrado com sucesso"
+}
+
+#### 2. Login
+- **Método:** `POST`
+- **Rota:** `/user/login`
+- **Autenticação:** Não requer
+- **Body (JSON):**
+```json
+{
+  "email": "aluno@email.com",
+  "password": "Senha@123",
+}
+- ** Resposta: 200 **
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiration": "2026-08-08T18:00:00Z",
+  "refreshToken": "/user/token/refresh"
+}
+
+
+#### 3. Refresh Token
+- **Método:** `POST`
+- **Rota:** `/user/token/refresh`
+- **Autenticação:** Não requer
+- **Body (JSON):**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+}
+
+- ** Resposta: 200 **
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiration": "2026-08-08T18:00:00Z",
+  "refreshToken": "/user/token/refresh"
+}
