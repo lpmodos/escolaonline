@@ -1,7 +1,10 @@
+using AutoMapper;
 using EscolaOnLine.Data;
+using EscolaOnLine.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -63,6 +66,10 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddScoped<CoursesService>();
+builder.Services.AddAutoMapper(cfg => { }, typeof(Program));
+
 
 var app = builder.Build();
 
