@@ -8,5 +8,6 @@
         public string Categoria { get; set; }
         public int CargaHoraria { get; set; }
         public DateTime DataCriacao { get; set; }
+        public bool IsDeleted { get; set; }
     }
 }
