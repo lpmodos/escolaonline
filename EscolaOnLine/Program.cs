@@ -98,7 +98,9 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddAutoMapper(cfg => { }, typeof(Program));
 builder.Services.AddScoped<CoursesService>();
+builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<StudentsService>();
 
 
 var app = builder.Build();

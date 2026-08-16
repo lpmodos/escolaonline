@@ -21,7 +21,6 @@ namespace EscolaOnLine.Controllers
         /// </summary>
         /// <param name="dto"></param>
         /// <returns>IActionResult</returns>
-
         [HttpPost]
         [Authorize(Roles = "Admin,Instructor")]
         public async Task<IActionResult> Cadastrar([FromBody] CourseCreateDto dto)
