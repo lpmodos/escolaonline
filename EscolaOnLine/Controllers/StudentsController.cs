@@ -10,9 +10,11 @@ namespace EscolaOnLine.Controllers
     public class StudentsController : ControllerBase
     {
         private readonly StudentsService _studentsService;
-        public StudentsController(StudentsService studentsService)
+        private readonly EnrollmentsService _enrollementsService;
+        public StudentsController(StudentsService studentsService, EnrollmentsService enrollementsService)
         {
             _studentsService = studentsService;
+            _enrollementsService = enrollementsService;
         }
 
         /// <summary>
@@ -150,5 +152,38 @@ namespace EscolaOnLine.Controllers
 
             return NoContent();
         }
+
+        /// <summary>
+        /// Lista cursos de um estudante
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns>IActionResult</returns>
+        [HttpGet("{id}/enrollments")]
+        [Authorize]
+        public async Task<IActionResult> BuscarCursos(int id)
+        {
+            if (id < 1)
+                return BadRequest(Problem(detail: "Id incorreto"));
+
+            var estudante = await _studentsService.BuscarPorIdAsync(id);
+
+            if (estudante == null)
+                return NotFound(Problem(detail: "Estudante não encontrado!"));
+
+            // Verifica se é Admin
+            var isAdmin = User.IsInRole("Admin");
+
+            // Verifica se é o próprio usuário
+            var userIdLogado = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var isProprioUsuario = estudante.UserId == userIdLogado;
+
+            if (!isAdmin && !isProprioUsuario)
+                return Forbid(); // 403
+
+            var cursos = await _enrollementsService.BuscarCursosDoEstudanteAsync(id);
+
+            return Ok(cursos);
+        }
+
     }
 }
