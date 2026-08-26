@@ -29,14 +29,17 @@ namespace EscolaOnLine.Services
 
         public async Task<ServiceResult> CadastrarAsync(RegisterDto dto)
         {
+            // Validação de Role
             var rolesPermitidas = new[] { "Admin", "Instructor", "Student" };
             if (!rolesPermitidas.Contains(dto.Role))
-                return ServiceResult.Fail("Role inválida. Use: Admin, Instructor ou Student.", 400);
+                return ServiceResult.BadRequest("Role inválida. Use: Admin, Instructor ou Student.");
 
+            // Verifica se e-mail já existe
             var userExistente = await _userManager.FindByEmailAsync(dto.Email);
             if (userExistente != null)
-                return ServiceResult.Fail("E-mail já cadastrado.", 409);
+                return ServiceResult.Conflict("E-mail já cadastrado.");
 
+            // Cria o usuário
             var user = new IdentityUser
             {
                 UserName = dto.Email,
@@ -44,18 +47,32 @@ namespace EscolaOnLine.Services
                 EmailConfirmed = true
             };
 
-            var result = await _userManager.CreateAsync(user, dto.Password);
-            if (!result.Succeeded)
+            var identityResult = await _userManager.CreateAsync(user, dto.Password);
+
+            if (!identityResult.Succeeded)
             {
-                var erros = string.Join(" | ", result.Errors.Select(e => e.Description));
-                return ServiceResult.Fail(erros, 400);
+                // Transforma os erros do Identity em dicionário (formato ProblemDetails)
+                var errors = identityResult.Errors
+                    .GroupBy(e => e.Code)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(e => e.Description).ToArray()
+                    );
+
+                return ServiceResult.UnprocessableEntity(
+                    "Não foi possível criar o usuário.",
+                    errors
+                );
             }
 
+            // Garante que a Role existe
             if (!await _roleManager.RoleExistsAsync(dto.Role))
                 await _roleManager.CreateAsync(new IdentityRole(dto.Role));
 
+            // Adiciona o usuário na Role
             await _userManager.AddToRoleAsync(user, dto.Role);
 
+            // Se for Student, cria o registro na tabela Students
             if (dto.Role == "Student")
             {
                 var student = new Student
@@ -68,18 +85,34 @@ namespace EscolaOnLine.Services
                 await _context.SaveChangesAsync();
             }
 
-            return ServiceResult.Created();
+            // Sucesso
+            return ServiceResult<object>.Created(new
+            {
+                Id = user.Id,
+                Email = user.Email,
+                Role = dto.Role,
+                Message = "Usuário registrado com sucesso"
+            });
         }
 
         public async Task<ServiceResult<AuthResponseDto>> LogarAsync(LoginDto dto)
         {
             var user = await _userManager.FindByEmailAsync(dto.Email);
+
+            // Por segurança, sempre retornamos a mesma mensagem (evita enumeração de usuários)
             if (user == null)
-                return ServiceResult<AuthResponseDto>.Fail("E-mail ou senha inválidos.", 401);
+                return ServiceResult<AuthResponseDto>.Unauthorized("E-mail ou senha inválidos.");
 
             var result = await _signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
+
             if (!result.Succeeded)
-                return ServiceResult<AuthResponseDto>.Fail("E-mail ou senha inválidos.", 401);
+            {
+                // Lockout
+                if (result.IsLockedOut)
+                    return ServiceResult<AuthResponseDto>.Unauthorized("Conta temporariamente bloqueada. Tente novamente mais tarde.");
+
+                return ServiceResult<AuthResponseDto>.Unauthorized("E-mail ou senha inválidos.");
+            }
 
             var roles = await _userManager.GetRolesAsync(user);
             var tokenResponse = _tokenService.GerarToken(user, roles);
@@ -90,21 +123,25 @@ namespace EscolaOnLine.Services
         public async Task<ServiceResult<AuthResponseDto>> AtualizarTokenAsync(TokenDto dto)
         {
             var principal = _tokenService.GetPrincipalFromExpiredToken(dto.Token);
+
             if (principal == null)
-                return ServiceResult<AuthResponseDto>.Fail("Token inválido.", 401);
+                return ServiceResult<AuthResponseDto>.Unauthorized("Token inválido ou expirado.");
 
             var userId = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
             if (string.IsNullOrEmpty(userId))
-                return ServiceResult<AuthResponseDto>.Fail("Token inválido.", 401);
+                return ServiceResult<AuthResponseDto>.Unauthorized("Token inválido.");
 
             var user = await _userManager.FindByIdAsync(userId);
+
             if (user == null)
-                return ServiceResult<AuthResponseDto>.Fail("Usuário não encontrado.", 401);
+                return ServiceResult<AuthResponseDto>.Unauthorized("Usuário não encontrado.");
 
             var roles = await _userManager.GetRolesAsync(user);
             var tokenResponse = _tokenService.GerarToken(user, roles);
 
             return ServiceResult<AuthResponseDto>.Ok(tokenResponse);
         }
+
     }
 }

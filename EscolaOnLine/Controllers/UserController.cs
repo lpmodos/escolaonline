@@ -24,13 +24,10 @@ namespace EscolaOnLine.Controllers
         public async Task<IActionResult> Cadastrar([FromBody] RegisterDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(Problem(detail: "Dados inválidos."));
+                return ValidationProblem(ModelState);
 
             var result = await _userService.CadastrarAsync(dto);
-
-            if (!result.Success)
-                return StatusCode(result.StatusCode, Problem(detail: result.Error));
-            return StatusCode(201, new { message = "Usuário registrado com sucesso" });
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -40,15 +37,11 @@ namespace EscolaOnLine.Controllers
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(Problem(detail: "Dados inválidos."));
+                return ValidationProblem(ModelState);
 
             var result = await _userService.LogarAsync(dto);
-
-            if (!result.Success)
-                return StatusCode(result.StatusCode, Problem(detail: result.Error));
-
-            return Ok(result.Dados);
-        }
+            return result.ToActionResult();
+        }           
 
         /// <summary>
         /// Refresh Token
@@ -56,17 +49,16 @@ namespace EscolaOnLine.Controllers
         [HttpPost("token/refresh")]
         public async Task<IActionResult> Refresh([FromBody] TokenDto dto)
         {
+            if (!ModelState.IsValid)
+                return ValidationProblem(ModelState);
+
+            // Validação extra (caso o DTO não tenha [Required])
             if (string.IsNullOrWhiteSpace(dto.Token))
-                return BadRequest(Problem(detail: "Token é obrigatório."));
+                return BadRequest(Problem(detail: "Token é obrigatório.", title: "Bad Request"));
 
             var result = await _userService.AtualizarTokenAsync(dto);
-
-            if (!result.Success)
-                return StatusCode(result.StatusCode, Problem(detail: result.Error));
-
-            return Ok(result.Dados);
+            return result.ToActionResult();
         }
-
 
     }
 }
