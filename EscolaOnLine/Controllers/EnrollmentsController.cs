@@ -30,8 +30,8 @@ namespace EscolaOnLine.Controllers
         [Authorize]
         public async Task<IActionResult> Cadastrar([FromBody] EnrollmentCreateDto dto)
         {
-            if (dto is null)
-                return BadRequest(Problem(detail: "Dados não informados."));
+            if (!ModelState.IsValid)
+                return ValidationProblem(ModelState);
 
             var resultadoPermissao = await ResolverStudentIdAsync(dto);
             if (resultadoPermissao is not null)
@@ -39,10 +39,7 @@ namespace EscolaOnLine.Controllers
 
             var result = await _enrollmentsService.CadastrarAsync(dto);
 
-            if (!result.Success)
-                return StatusCode(result.StatusCode, Problem(detail: result.Error));
-
-            return StatusCode(201, new { message = "Matrícula registrada com sucesso" });
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -68,10 +65,7 @@ namespace EscolaOnLine.Controllers
                 dto.CourseId,
                 apagarDefinitivo);
 
-            if (!result.Success)
-                return StatusCode(result.StatusCode, Problem(detail: result.Error));
-
-            return Ok(new { message = "Matrícula cancelada/apagada com sucesso" });
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -85,24 +79,24 @@ namespace EscolaOnLine.Controllers
             {
                 var userIdLogado = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-                if (string.IsNullOrEmpty(userIdLogado))
-                    return Unauthorized(Problem(detail: "Usuário não autenticado corretamente."));
+                if (string.IsNullOrWhiteSpace(userIdLogado))
+                    return Unauthorized();
 
-                var estudante = await _studentsService.BuscarPorUserIdAsync(userIdLogado);
+                var estudanteResult = await _studentsService.BuscarPorUserIdAsync(userIdLogado);
 
-                if (estudante is null)
-                    return NotFound(Problem(detail: "Estudante não encontrado para o usuário logado."));
+                if (!estudanteResult.Success)
+                    return estudanteResult.ToActionResult();
 
                 // Se o estudante tentou enviar um StudentId diferente do dele → bloqueia
-                if (dto.StudentId.HasValue && dto.StudentId.Value > 0 && dto.StudentId != estudante.Id)
-                    return Forbid(); // ou Unauthorized
+                if (dto.StudentId.HasValue && dto.StudentId.Value > 0 && dto.StudentId != estudanteResult.Dados!.Id)
+                    return Forbid();
 
-                dto.StudentId = estudante.Id;
+                dto.StudentId = estudanteResult.Dados.Id;
             }
             else
             {
                 if (dto.StudentId is null || dto.StudentId <= 0)
-                    return BadRequest(Problem(detail: "StudentId é obrigatório quando o usuário é Admin."));
+                    return BadRequest(Problem(detail: "StudentId é obrigatório quando o usuário é Admin.", title: "Bad Request"));
             }
 
             return null; // tudo ok

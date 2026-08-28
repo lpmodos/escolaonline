@@ -23,15 +23,14 @@ namespace EscolaOnLine.Controllers
         /// <param name="dto"></param>
         /// <returns>IActionResult</returns>
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Cadastrar([FromBody] StudentCreateDto dto)
         {
-            if (dto == null) return BadRequest(Problem(detail: "Dados não informados."));
-            
-            var result = await _studentsService.CadastrarAsync(dto);
+            if (!ModelState.IsValid)
+                return ValidationProblem(ModelState);
 
-            if (!result.Success)
-                return StatusCode(result.StatusCode, Problem(detail: result.Error));
-            return StatusCode(201, new { message = "Usuário registrado com sucesso" });
+            var result = await _studentsService.CadastrarAsync(dto);
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -41,12 +40,10 @@ namespace EscolaOnLine.Controllers
         /// <returns>IActionResult</returns>
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> BuscarTodos([FromQuery]string? nome, [FromQuery]string? ordernarPor, [FromQuery]string? direcao, [FromQuery] int? pagina)
+        public async Task<IActionResult> BuscarTodos([FromQuery] string? nome, [FromQuery] string? ordernarPor, [FromQuery] string? direcao, [FromQuery] int? pagina)
         {
-            if (pagina < 1)
-                return BadRequest(Problem(detail: "A página deve ser maior que zero."));
-            var estudantes = _studentsService.BuscarTodosAsync(nome, ordernarPor, direcao, pagina);
-            return Ok(estudantes);
+            var result = await _studentsService.BuscarTodosAsync(nome, ordernarPor, direcao, pagina);
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -58,25 +55,22 @@ namespace EscolaOnLine.Controllers
         [Authorize]
         public async Task<IActionResult> BuscarPorId(int id)
         {
-            if (id < 1)
-                return BadRequest(Problem(detail: "Id incorreto"));
+            var result = await _studentsService.BuscarPorIdAsync(id);
 
-            var estudante = await _studentsService.BuscarPorIdAsync(id);
-
-            if (estudante == null)
-                return NotFound(Problem(detail: "Estudante não encontrado!"));
+            if (!result.Success)
+                return result.ToActionResult();
 
             // Verifica se é Admin
             var isAdmin = User.IsInRole("Admin");
 
             // Verifica se é o próprio usuário
             var userIdLogado = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var isProprioUsuario = estudante.UserId == userIdLogado;
+            var isProprioUsuario = result.Dados!.UserId == userIdLogado;
 
             if (!isAdmin && !isProprioUsuario)
                 return Forbid(); // 403
 
-            return Ok(estudante);
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -90,12 +84,11 @@ namespace EscolaOnLine.Controllers
         {
             var userIdLogado = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            var estudante = await _studentsService.BuscarPorUserIdAsync(userIdLogado);
+            if (string.IsNullOrWhiteSpace(userIdLogado))
+                return Unauthorized();
 
-            if (estudante == null)
-                return NotFound(Problem(detail: "Nenhuma estudante logado!"));
-
-            return Ok(estudante);
+            var result = await _studentsService.BuscarPorUserIdAsync(userIdLogado);
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -107,30 +100,26 @@ namespace EscolaOnLine.Controllers
         [Authorize]
         public async Task<IActionResult> Atualizar([FromBody] StudentUpdateDto dto, int id)
         {
-            if (id < 1)
-                return BadRequest(Problem(detail: "Id incorreto"));
+            if (!ModelState.IsValid)
+                return ValidationProblem(ModelState);
 
             var estudante = await _studentsService.BuscarPorIdAsync(id);
 
-            if (estudante == null)
-                return NotFound(Problem(detail: "Estudante não encontrado!"));
+            if (!estudante.Success)
+                return estudante.ToActionResult();
 
             // Verifica se é Admin
             var isAdmin = User.IsInRole("Admin");
 
             // Verifica se é o próprio usuário
             var userIdLogado = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var isProprioUsuario = estudante.UserId == userIdLogado;
+            var isProprioUsuario = estudante.Dados!.UserId == userIdLogado;
 
             if (!isAdmin && !isProprioUsuario)
                 return Forbid(); // 403
 
-            var atualizado = await _studentsService.AtualizarAsync(dto, id);
-
-            if (!atualizado)
-                return NotFound(Problem(detail: "Estudante não atualizado/encontrado."));
-
-            return NoContent();
+            var result = await _studentsService.AtualizarAsync(dto, id);
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -142,15 +131,8 @@ namespace EscolaOnLine.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Apagar(int id, [FromQuery] bool? apagarDefinitivo = false)
         {
-            if (id < 1)
-                return BadRequest(Problem(detail: "Id incorreto"));
-
-            bool apagado = await _studentsService.ApagarAsync(id, (bool)apagarDefinitivo);
-
-            if (!apagado)
-                return NotFound(Problem(detail: "Estudante não apagado/desativado."));
-
-            return NoContent();
+            var result = await _studentsService.ApagarAsync(id, apagarDefinitivo ?? false);
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -162,27 +144,23 @@ namespace EscolaOnLine.Controllers
         [Authorize]
         public async Task<IActionResult> BuscarCursos(int id)
         {
-            if (id < 1)
-                return BadRequest(Problem(detail: "Id incorreto"));
-
             var estudante = await _studentsService.BuscarPorIdAsync(id);
 
-            if (estudante == null)
-                return NotFound(Problem(detail: "Estudante não encontrado!"));
+            if (!estudante.Success)
+                return estudante.ToActionResult();
 
             // Verifica se é Admin
             var isAdmin = User.IsInRole("Admin");
 
             // Verifica se é o próprio usuário
             var userIdLogado = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var isProprioUsuario = estudante.UserId == userIdLogado;
+            var isProprioUsuario = estudante.Dados!.UserId == userIdLogado;
 
             if (!isAdmin && !isProprioUsuario)
                 return Forbid(); // 403
 
-            var cursos = await _enrollementsService.BuscarCursosDoEstudanteAsync(id);
-
-            return Ok(cursos);
+            var result = await _enrollementsService.BuscarCursosDoEstudanteAsync(id);
+            return result.ToActionResult();
         }
 
     }

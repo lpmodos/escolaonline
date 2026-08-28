@@ -9,7 +9,7 @@ namespace EscolaOnLine.Models
         public int StudentId { get; set; }
         [Required]
         public Status Status { get; set; }
-        public DateTime DataMatricula { get; set; } = DateTime.Now;
+        public DateTime DataMatricula { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;
         public virtual Course  Course { get; set; }
         public virtual Student Student { get; set; }

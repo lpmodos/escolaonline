@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using EscolaOnLine.Data;
 using EscolaOnLine.Dtos;
+using EscolaOnLine.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace EscolaOnLine.Services
@@ -23,18 +24,23 @@ namespace EscolaOnLine.Services
         public async Task<ServiceResult> CadastrarAsync(StudentCreateDto dto)
         {
             var registerDto = _mapper.Map<RegisterDto>(dto);
+            registerDto.Role = "Student"; // Garante que a role seja sempre Student
             return await _userService.CadastrarAsync(registerDto);
         }
 
-        public async Task<List<StudentReadSimplificadoDto>> BuscarTodosAsync(
+        public async Task<ServiceResult<List<StudentReadSimplificadoDto>>> BuscarTodosAsync(
           string? nome,
           string? ordenarPor,
           string? direcao,
           int? pagina)
         {
+
+            if (pagina < 1)
+                return ServiceResult<List<StudentReadSimplificadoDto>>.BadRequest("A página deve ser maior que zero.");
+
             const int numeroItensPorPagina = 20;
 
-            var query = _context.Students.AsQueryable();
+            var query = _context.Students.Where(c => !c.IsDeleted).AsQueryable();
 
             // Busca por título (contém)
             if (!string.IsNullOrWhiteSpace(nome))
@@ -58,52 +64,71 @@ namespace EscolaOnLine.Services
                 _ => query.OrderByDescending(c => c.DataCadastro) // padrão: mais recentes primeiro
             };
 
-            if (pagina is null)
-                return _mapper.Map<List<StudentReadSimplificadoDto>>(query);
-
             // Paginação
             var estudantes = await query
                 .Skip(((int)pagina - 1) * numeroItensPorPagina)
                 .Take(numeroItensPorPagina)
                 .ToListAsync();
 
-            return _mapper.Map<List<StudentReadSimplificadoDto>>(estudantes);
+            var dto = _mapper.Map<List<StudentReadSimplificadoDto>>(estudantes);
+            return ServiceResult<List<StudentReadSimplificadoDto>>.Ok(dto);
         }
 
-        public async Task<StudentReadDto> BuscarPorIdAsync(int id)
+        public async Task<ServiceResult<StudentReadDto>> BuscarPorIdAsync(int id)
         {
-            var estudante = await _context.Students.Where(c => c.Id == id).FirstOrDefaultAsync();
-            return _mapper.Map<StudentReadDto>(estudante);
-        }
+            if (id < 1)
+                return ServiceResult<StudentReadDto>.BadRequest("Id incorreto.");
 
-        public async Task<StudentReadDto> BuscarPorUserIdAsync(string userId)
-        {
-            var estudante = await _context.Students.Where(c => c.UserId == userId).FirstOrDefaultAsync();
-            return _mapper.Map<StudentReadDto>(estudante);
-        }
-
-        public async Task<bool> AtualizarAsync(StudentUpdateDto dto, int id)
-        {
-            var estudante = await _context.Students
-                .FirstOrDefaultAsync(c => c.Id == id);
+            var estudante = await _context.Students.Where(c => c.Id == id && !c.IsDeleted).FirstOrDefaultAsync();
 
             if (estudante is null)
-                return false;
+                return ServiceResult<StudentReadDto>.NotFound("Estudante não encontrado.");
+
+            var dto = _mapper.Map<StudentReadDto>(estudante);
+            return ServiceResult<StudentReadDto>.Ok(dto);
+        }
+
+        public async Task<ServiceResult<StudentReadDto>> BuscarPorUserIdAsync(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return ServiceResult<StudentReadDto>.BadRequest("UserId incorreto.");
+
+            var estudante = await _context.Students.Where(c => c.UserId == userId && !c.IsDeleted).FirstOrDefaultAsync();
+
+            if (estudante is null)
+                return ServiceResult<StudentReadDto>.NotFound("Estudante não encontrado.");
+
+            var dto = _mapper.Map<StudentReadDto>(estudante);
+            return ServiceResult<StudentReadDto>.Ok(dto);
+        }
+
+        public async Task<ServiceResult> AtualizarAsync(StudentUpdateDto dto, int id)
+        {
+            if (id < 1)
+                return ServiceResult.BadRequest("Id incorreto.");
+
+            var estudante = await _context.Students
+                .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+
+            if (estudante is null)
+                return ServiceResult.NotFound("Estudante não encontrado.");
 
             _mapper.Map(dto, estudante);
-
             await _context.SaveChangesAsync();
 
-            return true;
+            return ServiceResult.NoContent();
         }
 
-        public async Task<bool> ApagarAsync(int id, bool apagarDefinitivo = false)
+        public async Task<ServiceResult> ApagarAsync(int id, bool apagarDefinitivo = false)
         {
+            if (id < 1)
+                return ServiceResult.BadRequest("Id incorreto.");
+
             var estudante = await _context.Students
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (estudante is null)
-                return false;
+                return ServiceResult.NotFound("Estudante não encontrado."); ;
 
             if (apagarDefinitivo)
                 _context.Students.Remove(estudante);
@@ -111,7 +136,7 @@ namespace EscolaOnLine.Services
                 estudante.IsDeleted = true;
            
             await _context.SaveChangesAsync();
-            return true;
+            return ServiceResult.NoContent();
         }
 
     }

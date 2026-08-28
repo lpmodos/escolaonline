@@ -9,7 +9,7 @@ namespace EscolaOnLine.Models
         [Required]
         [MaxLength(100, ErrorMessage = "Nome deve ter tamanho maximo de 100 caractere")]
         public string NomeCompleto { get; set; } = string.Empty;
-        public DateTime DataCadastro { get; set; } = DateTime.Now;
+        public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;
         [Required]
         public string UserId { get; set; } = string.Empty;

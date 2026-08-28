@@ -25,11 +25,15 @@ namespace EscolaOnLine.Controllers
         [Authorize(Roles = "Admin,Instructor")]
         public async Task<IActionResult> Cadastrar([FromBody] CourseCreateDto dto)
         {
-            if (dto == null) return BadRequest(Problem(detail: "Dados não informados."));
+            if (!ModelState.IsValid)
+                return ValidationProblem(ModelState);
 
-            var id = await _coursesService.CadastrarAsync(dto);
+            var result = await _coursesService.CadastrarAsync(dto);
 
-            return CreatedAtAction(nameof(BuscarPorId), new { id }, new { id });
+            if (!result.Success)
+                return result.ToActionResult();
+
+            return CreatedAtAction(nameof(BuscarPorId), new { id = result.Dados }, new { id = result.Dados });
         }
 
         /// <summary>
@@ -45,11 +49,8 @@ namespace EscolaOnLine.Controllers
             [FromQuery] string? direcao,
             [FromQuery] int pagina = 1)
         {
-            if (pagina < 1)
-                return BadRequest(Problem(detail: "A página deve ser maior que zero."));
-
-            var cursos = await _coursesService.BuscarTodosAsync(categoria, titulo, ordenarPor, direcao, pagina);
-            return Ok(cursos);
+            var result = await _coursesService.BuscarTodosAsync(categoria, titulo, ordenarPor, direcao, pagina);
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -61,17 +62,9 @@ namespace EscolaOnLine.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> BuscarPorId(int id)
         {
-            if (id < 1)
-                return BadRequest(Problem(detail: "Id incorreto"));
-
-            var curso = await _coursesService.BuscarPorIdAsync(id);
-
-            if (curso == null)
-                return NotFound(Problem(detail: "Curso não encontrado!"));
-
-            return Ok(curso);
+            var result = await _coursesService.BuscarPorIdAsync(id);
+            return result.ToActionResult();
         }
-
 
         /// <summary>
         /// Atualizar dados do curso
@@ -83,15 +76,11 @@ namespace EscolaOnLine.Controllers
         [Authorize(Roles = "Admin,Instructor")]
         public async Task<IActionResult>Atualizar([FromBody] CourseUpdateDto dto, int id)
         {
-            if (id < 1)
-                return BadRequest(Problem(detail: "Id incorreto")); 
+            if (!ModelState.IsValid)
+                return ValidationProblem(ModelState);
 
-            var atualizado = await _coursesService.AtualizarAsync(dto, id);
-
-            if (!atualizado)
-                return NotFound(Problem(detail: "Curso não atualizado/encontrado."));
-
-            return NoContent();
+            var result = await _coursesService.AtualizarAsync(dto, id);
+            return result.ToActionResult();
         }
 
         /// <summary>
@@ -103,19 +92,8 @@ namespace EscolaOnLine.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Apagar(int id)
         {
-            if (id < 1)
-                return BadRequest(Problem(detail: "Id incorreto"));
-
-            bool apagado = await _coursesService.ApagarAsync(id);
-
-            if (!apagado)
-                return NotFound(Problem(detail: "Curso não apagado."));
-
-            return NoContent();
+            var result = await _coursesService.ApagarAsync(id);
+            return result.ToActionResult();
         }
-
-    }
-
-
-    
+    }   
 }

@@ -3,7 +3,6 @@ using EscolaOnLine.Data;
 using EscolaOnLine.Dtos;
 using EscolaOnLine.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 
 namespace EscolaOnLine.Services
 {
@@ -28,26 +27,26 @@ namespace EscolaOnLine.Services
             try
             {
                 if (dto.CourseId <= 0)
-                    return ServiceResult.Fail("Curso Id não informado.", 400);
+                    return ServiceResult.BadRequest("Curso Id não informado.");
 
-                if (dto.StudentId <= 0)
-                    return ServiceResult.Fail("Estudante Id não informado.", 400);
+                if (dto.StudentId is null || dto.StudentId <= 0)
+                    return ServiceResult.BadRequest("Estudante Id não informado.");
 
                 // Valida Curso
-                var curso = await _coursesService.BuscarPorIdAsync(dto.CourseId);
-                if (curso is null)
-                    return ServiceResult.Fail("Curso não encontrado.", 404);
+                var cursoResult = await _coursesService.BuscarPorIdAsync(dto.CourseId);
+                if (!cursoResult.Success)
+                    return ServiceResult.NotFound(cursoResult.Error ?? "Curso não encontrado.");
 
-                if (curso.IsDeleted)
-                    return ServiceResult.Fail("Curso não está ativo.", 400);
+                if (cursoResult.Dados!.IsDeleted)
+                    return ServiceResult.UnprocessableEntity("Curso não está ativo.");
 
                 // Valida Estudante
-                var estudante = await _studentsService.BuscarPorIdAsync(dto.StudentId.Value);
-                if (estudante is null)
-                    return ServiceResult.Fail("Estudante não encontrado.", 404);
+                var estudanteResult = await _studentsService.BuscarPorIdAsync(dto.StudentId.Value);
+                if (!estudanteResult.Success)
+                    return ServiceResult.NotFound(estudanteResult.Error ?? "Estudante não encontrado.");
 
-                if (estudante.IsDeleted)
-                    return ServiceResult.Fail("Estudante não está ativo.", 400);
+                if (estudanteResult.Dados!.IsDeleted)
+                    return ServiceResult.UnprocessableEntity("Estudante não está ativo."); 
 
                 // Verifica se já existe matrícula ATIVA
                 var jaMatriculado = await _context.Enrollments
@@ -56,10 +55,10 @@ namespace EscolaOnLine.Services
                                 && !e.IsDeleted);
 
                 if (jaMatriculado)
-                    return ServiceResult.Fail("Estudante já matriculado no Curso.", 409);
+                    return ServiceResult.Conflict("Estudante já matriculado no Curso.");
 
 
-                // Opcional: se existir uma matrícula cancelada, você pode "reativar" em vez de criar outra
+                // Se existir uma matrícula cancelada, será "reativada" (em vez de criar outra)
                 var matriculaCancelada = await _context.Enrollments
                     .FirstOrDefaultAsync(e => e.CourseId == dto.CourseId
                                            && e.StudentId == dto.StudentId
@@ -68,7 +67,7 @@ namespace EscolaOnLine.Services
                 if (matriculaCancelada is not null)
                 {
                     matriculaCancelada.IsDeleted = false;
-                    matriculaCancelada.DataMatricula = DateTime.Now;
+                    matriculaCancelada.DataMatricula = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
                     return ServiceResult.Created();
@@ -76,7 +75,7 @@ namespace EscolaOnLine.Services
 
                 // Cria matrícula
                 var enrollment = _mapper.Map<Enrollment>(dto);
-                enrollment.DataMatricula = DateTime.Now;
+                enrollment.DataMatricula = DateTime.UtcNow;
 
                 await _context.AddAsync(enrollment);
 
@@ -89,7 +88,7 @@ namespace EscolaOnLine.Services
             catch (DbUpdateException)
             {
                 await transaction.RollbackAsync();
-                return ServiceResult.Fail("Erro ao salvar matrícula. Possível duplicidade.", 409);
+                return ServiceResult.Conflict("Erro ao salvar matrícula. Possível duplicidade.");
             }
             catch
             {
@@ -100,12 +99,20 @@ namespace EscolaOnLine.Services
 
         public async Task<ServiceResult<List<CourseReadSimplificadoDto>>> BuscarCursosDoEstudanteAsync(int idEstudante)
         {
-            var cursosMatriculadosEstudante = await _context.Enrollments.Where(e => e.StudentId == idEstudante && !e.IsDeleted).Select(e => e.CourseId).ToArrayAsync();
+            if (idEstudante < 1)
+                return ServiceResult<List<CourseReadSimplificadoDto>>.BadRequest("Id do estudante inválido.");
 
-            if (cursosMatriculadosEstudante is null)
+            var cursosMatriculadosEstudanteIds = await _context.Enrollments
+                .Where(e => e.StudentId == idEstudante && !e.IsDeleted)
+                .Select(e => e.CourseId)
+                .ToArrayAsync();
+
+            if (cursosMatriculadosEstudanteIds.Length < 1)
                 return new ServiceResult<List<CourseReadSimplificadoDto>>();
 
-            var cursos = await _context.Courses.Where(c => cursosMatriculadosEstudante.Contains(c.Id)).ToListAsync();
+            var cursos = await _context.Courses
+                .Where(c => cursosMatriculadosEstudanteIds
+                .Contains(c.Id)).ToListAsync();
 
             var dto = _mapper.Map<List<CourseReadSimplificadoDto>>(cursos);
 
@@ -114,14 +121,17 @@ namespace EscolaOnLine.Services
 
         public async Task<ServiceResult> ApagarAsync(int idEstudante, int idCurso, bool apagarDefinitivo = false)
         {
+            if (idEstudante < 1 || idCurso < 1)
+                return ServiceResult.BadRequest("Ids inválidos.");
+
             var matricula = await _context.Enrollments
                 .FirstOrDefaultAsync(m => m.CourseId == idCurso && m.StudentId == idEstudante);
 
             if (matricula is null)
-                return ServiceResult.Fail("Matrícula não encontrada.", 404);
+                return ServiceResult.NotFound("Matrícula não encontrada.");
 
             if (matricula.IsDeleted && !apagarDefinitivo)
-                return ServiceResult.Fail("Matrícula já está cancelada.", 409);
+                return ServiceResult.UnprocessableEntity("Matrícula já está cancelada.");
 
             if (apagarDefinitivo)
                 _context.Enrollments.Remove(matricula);
@@ -130,7 +140,7 @@ namespace EscolaOnLine.Services
 
             await _context.SaveChangesAsync();
 
-            return ServiceResult.Ok(); 
+            return ServiceResult.NoContent();
         }
 
     }

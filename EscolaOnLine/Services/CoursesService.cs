@@ -17,22 +17,26 @@ namespace EscolaOnLine.Services
             _mapper = mapper;
         }
 
-        public async Task<int> CadastrarAsync(CourseCreateDto dto)
+        public async Task<ServiceResult<int>> CadastrarAsync(CourseCreateDto dto)
         {
             var curso = _mapper.Map<Course>(dto);
+
             await _context.AddAsync(curso);
             await _context.SaveChangesAsync();
 
-            return curso.Id;
+            return ServiceResult<int>.Created(curso.Id);
         }
 
-        public async Task<List<CourseReadSimplificadoDto>> BuscarTodosAsync(
-            string? categoria,
-            string? titulo,
-            string? ordenarPor,
-            string? direcao,
-            int pagina = 1)
+        public async Task<ServiceResult<List<CourseReadSimplificadoDto>>> BuscarTodosAsync(
+                string? categoria,
+                string? titulo,
+                string? ordenarPor,
+                string? direcao,
+                int pagina = 1)
         {
+            if (pagina < 1)
+                return ServiceResult<List<CourseReadSimplificadoDto>>.BadRequest("A página deve ser maior que zero.");
+            
             const int numeroItensPorPagina = 20;
 
             var query = _context.Courses.AsQueryable();
@@ -71,43 +75,56 @@ namespace EscolaOnLine.Services
                 .Take(numeroItensPorPagina)
                 .ToListAsync();
 
-            return _mapper.Map<List<CourseReadSimplificadoDto>>(cursos);
+            var result = _mapper.Map<List<CourseReadSimplificadoDto>>(cursos);
+            return ServiceResult<List<CourseReadSimplificadoDto>>.Ok(result);
         }
 
-        public async Task<CourseReadDto> BuscarPorIdAsync(int id)
+        public async Task<ServiceResult<CourseReadDto>> BuscarPorIdAsync(int id)
         {
+            if (id < 1)
+                return ServiceResult<CourseReadDto>.BadRequest("Id incorreto.");
+
             var curso = await _context.Courses.Where(c => c.Id == id).FirstOrDefaultAsync();
-            return _mapper.Map<CourseReadDto>(curso);
+
+            if (curso is null)
+                return ServiceResult<CourseReadDto>.NotFound("Curso não encontrado.");
+
+            var dto = _mapper.Map<CourseReadDto>(curso);
+            return ServiceResult<CourseReadDto>.Ok(dto);
         }
 
-        public async Task<bool> AtualizarAsync(CourseUpdateDto dto, int id)
+        public async Task<ServiceResult> AtualizarAsync(CourseUpdateDto dto, int id)
         {
+            if (id < 1)
+                return ServiceResult.BadRequest("Id incorreto.");
+
             var curso = await _context.Courses
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (curso is null)
-                return false;
+                return ServiceResult.NotFound("Curso não encontrado.");
 
             _mapper.Map(dto, curso);
-
             await _context.SaveChangesAsync();
 
-            return true;
+            return ServiceResult.NoContent(); 
         }
 
-        public async Task<bool> ApagarAsync(int id)
+        public async Task<ServiceResult> ApagarAsync(int id)
         {
+            if (id < 1)
+                return ServiceResult.BadRequest("Id incorreto.");
+
             var curso = await _context.Courses
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (curso is null)
-                return false;
+                return ServiceResult.NotFound("Curso não encontrado.");
 
             _context.Courses.Remove(curso);
 
             await _context.SaveChangesAsync();
-
-            return true;
+            return ServiceResult.NoContent();
         }
     }
 }
