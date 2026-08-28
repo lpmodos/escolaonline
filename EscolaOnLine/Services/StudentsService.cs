@@ -34,7 +34,6 @@ namespace EscolaOnLine.Services
           string? direcao,
           int? pagina)
         {
-
             if (pagina < 1)
                 return ServiceResult<List<StudentReadSimplificadoDto>>.BadRequest("A página deve ser maior que zero.");
 
@@ -65,7 +64,9 @@ namespace EscolaOnLine.Services
             };
 
             // Paginação
-            var estudantes = await query
+            var estudantes = pagina is null ? 
+                await query.ToListAsync() : 
+                await query
                 .Skip(((int)pagina - 1) * numeroItensPorPagina)
                 .Take(numeroItensPorPagina)
                 .ToListAsync();

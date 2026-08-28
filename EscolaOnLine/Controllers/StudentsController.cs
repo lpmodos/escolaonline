@@ -40,7 +40,7 @@ namespace EscolaOnLine.Controllers
         /// <returns>IActionResult</returns>
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> BuscarTodos([FromQuery] string? nome, [FromQuery] string? ordernarPor, [FromQuery] string? direcao, [FromQuery] int? pagina)
+        public async Task<IActionResult> BuscarTodos([FromQuery] string? nome, [FromQuery] string? ordernarPor, [FromQuery] string? direcao, [FromQuery] int? pagina = 1)
         {
             var result = await _studentsService.BuscarTodosAsync(nome, ordernarPor, direcao, pagina);
             return result.ToActionResult();

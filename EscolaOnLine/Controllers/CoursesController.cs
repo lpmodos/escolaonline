@@ -47,7 +47,7 @@ namespace EscolaOnLine.Controllers
             [FromQuery] string? titulo,
             [FromQuery] string? ordenarPor,
             [FromQuery] string? direcao,
-            [FromQuery] int pagina = 1)
+            [FromQuery] int? pagina = 1)
         {
             var result = await _coursesService.BuscarTodosAsync(categoria, titulo, ordenarPor, direcao, pagina);
             return result.ToActionResult();

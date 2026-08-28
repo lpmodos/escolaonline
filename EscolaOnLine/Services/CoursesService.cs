@@ -32,11 +32,11 @@ namespace EscolaOnLine.Services
                 string? titulo,
                 string? ordenarPor,
                 string? direcao,
-                int pagina = 1)
+                int? pagina)
         {
             if (pagina < 1)
                 return ServiceResult<List<CourseReadSimplificadoDto>>.BadRequest("A página deve ser maior que zero.");
-            
+
             const int numeroItensPorPagina = 20;
 
             var query = _context.Courses.AsQueryable();
@@ -70,10 +70,13 @@ namespace EscolaOnLine.Services
             };
 
             // Paginação
-            var cursos = await query
-                .Skip((pagina - 1) * numeroItensPorPagina)
+            var cursos = pagina is null ?
+                await query.ToListAsync() :
+                await query
+                .Skip(((int)pagina - 1) * numeroItensPorPagina)
                 .Take(numeroItensPorPagina)
                 .ToListAsync();
+
 
             var result = _mapper.Map<List<CourseReadSimplificadoDto>>(cursos);
             return ServiceResult<List<CourseReadSimplificadoDto>>.Ok(result);
@@ -107,7 +110,7 @@ namespace EscolaOnLine.Services
             _mapper.Map(dto, curso);
             await _context.SaveChangesAsync();
 
-            return ServiceResult.NoContent(); 
+            return ServiceResult.NoContent();
         }
 
         public async Task<ServiceResult> ApagarAsync(int id)
