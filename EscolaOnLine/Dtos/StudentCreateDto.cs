@@ -5,7 +5,7 @@ namespace EscolaOnLine.Dtos
 {
     public class StudentCreateDto
     {
-        [Required]
+        [Required(ErrorMessage ="Nome é obrigatório.")]
         [MaxLength(100, ErrorMessage = "Nome deve ter tamanho maximo de 100 caractere")]
         public string NomeCompleto { get; set; } = string.Empty;
 
