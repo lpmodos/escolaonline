@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using EscolaOnLine.Data;
 using EscolaOnLine.Dtos;
+using EscolaOnLine.Exceptions;
 using EscolaOnLine.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,41 +24,42 @@ namespace EscolaOnLine.Services
 
         public async Task<ServiceResult> CadastrarAsync(EnrollmentCreateDto dto)
         {
+            if (dto.CourseId <= 0)
+                return ServiceResult.BadRequest("Curso Id não informado.");
+
+            if (dto.StudentId is null || dto.StudentId <= 0)
+                return ServiceResult.BadRequest("Estudante Id não informado.");
+
+            // Valida Curso
+            var cursoResult = await _coursesService.BuscarPorIdAsync(dto.CourseId);
+            if (!cursoResult.Success)
+            {
+                return ServiceResult.NotFound(cursoResult.Error ?? "Curso não encontrado.");
+            }
+
+            if (cursoResult.Dados!.IsDeleted)
+                return ServiceResult.UnprocessableEntity("Curso não está ativo.");
+
+            // Valida Estudante
+            var estudanteResult = await _studentsService.BuscarPorIdAsync(dto.StudentId.Value);
+            if (!estudanteResult.Success)
+                return ServiceResult.NotFound(estudanteResult.Error ?? "Estudante não encontrado.");
+
+            if (estudanteResult.Dados!.IsDeleted)
+                return ServiceResult.UnprocessableEntity("Estudante não está ativo.");
+
+            // Verifica se já existe matrícula ATIVA
+            var jaMatriculado = await _context.Enrollments
+                .AnyAsync(e => e.CourseId == dto.CourseId
+                            && e.StudentId == dto.StudentId
+                            && !e.IsDeleted);
+
+            if (jaMatriculado)
+                return ServiceResult.Conflict("Estudante já matriculado no Curso.");
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                if (dto.CourseId <= 0)
-                    return ServiceResult.BadRequest("Curso Id não informado.");
-
-                if (dto.StudentId is null || dto.StudentId <= 0)
-                    return ServiceResult.BadRequest("Estudante Id não informado.");
-
-                // Valida Curso
-                var cursoResult = await _coursesService.BuscarPorIdAsync(dto.CourseId);
-                if (!cursoResult.Success)
-                    return ServiceResult.NotFound(cursoResult.Error ?? "Curso não encontrado.");
-
-                if (cursoResult.Dados!.IsDeleted)
-                    return ServiceResult.UnprocessableEntity("Curso não está ativo.");
-
-                // Valida Estudante
-                var estudanteResult = await _studentsService.BuscarPorIdAsync(dto.StudentId.Value);
-                if (!estudanteResult.Success)
-                    return ServiceResult.NotFound(estudanteResult.Error ?? "Estudante não encontrado.");
-
-                if (estudanteResult.Dados!.IsDeleted)
-                    return ServiceResult.UnprocessableEntity("Estudante não está ativo."); 
-
-                // Verifica se já existe matrícula ATIVA
-                var jaMatriculado = await _context.Enrollments
-                    .AnyAsync(e => e.CourseId == dto.CourseId
-                                && e.StudentId == dto.StudentId
-                                && !e.IsDeleted);
-
-                if (jaMatriculado)
-                    return ServiceResult.Conflict("Estudante já matriculado no Curso.");
-
-
                 // Se existir uma matrícula cancelada, será "reativada" (em vez de criar outra)
                 var matriculaCancelada = await _context.Enrollments
                     .FirstOrDefaultAsync(e => e.CourseId == dto.CourseId
@@ -88,9 +90,9 @@ namespace EscolaOnLine.Services
             catch (DbUpdateException)
             {
                 await transaction.RollbackAsync();
-                return ServiceResult.Conflict("Erro ao salvar matrícula. Possível duplicidade.");
+                throw new ConflictException("Não foi possível salvar a matrícula devido a um conflito de dados.");
             }
-            catch
+            catch (Exception)
             {
                 await transaction.RollbackAsync();
                 throw;
@@ -133,14 +135,21 @@ namespace EscolaOnLine.Services
             if (matricula.IsDeleted && !apagarDefinitivo)
                 return ServiceResult.UnprocessableEntity("Matrícula já está cancelada.");
 
-            if (apagarDefinitivo)
-                _context.Enrollments.Remove(matricula);
-            else
-                matricula.IsDeleted = true;
+            try
+            {
+                if (apagarDefinitivo)
+                    _context.Enrollments.Remove(matricula);
+                else
+                    matricula.IsDeleted = true;
 
-            await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();
+                return ServiceResult.NoContent();
+            }
+            catch (DbUpdateException)
+            {
+                throw new ConflictException("Não foi possível atualizar a matrícula devido a um conflito de dados.");
+            }
 
-            return ServiceResult.NoContent();
         }
 
     }

@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using EscolaOnLine.Data;
 using EscolaOnLine.Dtos;
+using EscolaOnLine.Exceptions;
 using EscolaOnLine.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,11 +21,17 @@ namespace EscolaOnLine.Services
         public async Task<ServiceResult<int>> CadastrarAsync(CourseCreateDto dto)
         {
             var curso = _mapper.Map<Course>(dto);
+            try
+            {
+                await _context.AddAsync(curso);
+                await _context.SaveChangesAsync();
 
-            await _context.AddAsync(curso);
-            await _context.SaveChangesAsync();
-
-            return ServiceResult<int>.Created(curso.Id);
+                return ServiceResult<int>.Created(curso.Id);
+            }
+            catch (DbUpdateException)
+            {
+                throw new ConflictException("Não foi possível cadastrar curso devido a um conflito de dados.");
+            }
         }
 
         public async Task<ServiceResult<List<CourseReadSimplificadoDto>>> BuscarTodosAsync(
@@ -39,7 +46,7 @@ namespace EscolaOnLine.Services
 
             const int numeroItensPorPagina = 20;
 
-            var query = _context.Courses.AsQueryable();
+            var query = _context.Courses.Where(c => !c.IsDeleted).AsQueryable();
 
             // Filtro por categoria (opcional)
             if (!string.IsNullOrWhiteSpace(categoria))
@@ -108,12 +115,19 @@ namespace EscolaOnLine.Services
                 return ServiceResult.NotFound("Curso não encontrado.");
 
             _mapper.Map(dto, curso);
-            await _context.SaveChangesAsync();
 
-            return ServiceResult.NoContent();
+            try
+            {
+                await _context.SaveChangesAsync();
+                return ServiceResult.NoContent();
+            }
+            catch (DbUpdateException)
+            {
+                throw new ConflictException("Não foi possível atualizar curso devido a um conflito de dados.");
+            }
         }
 
-        public async Task<ServiceResult> ApagarAsync(int id)
+        public async Task<ServiceResult> ApagarAsync(int id, bool apagarDefinitivo = false)
         {
             if (id < 1)
                 return ServiceResult.BadRequest("Id incorreto.");
@@ -124,10 +138,23 @@ namespace EscolaOnLine.Services
             if (curso is null)
                 return ServiceResult.NotFound("Curso não encontrado.");
 
-            _context.Courses.Remove(curso);
+            if (curso.IsDeleted && !apagarDefinitivo)
+                return ServiceResult.UnprocessableEntity("Curso já está excluído.");
 
-            await _context.SaveChangesAsync();
-            return ServiceResult.NoContent();
+            try
+            {
+                if (apagarDefinitivo)
+                    _context.Courses.Remove(curso);
+                else
+                    curso.IsDeleted = true;
+
+                await _context.SaveChangesAsync();
+                return ServiceResult.NoContent();
+            }
+            catch (DbUpdateException)
+            {
+                throw new ConflictException("Não foi possível excluir curso devido a um conflito de dados.");
+            }
         }
     }
 }

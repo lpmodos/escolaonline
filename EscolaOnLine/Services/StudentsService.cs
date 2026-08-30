@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
 using EscolaOnLine.Data;
 using EscolaOnLine.Dtos;
-using EscolaOnLine.Models;
+using EscolaOnLine.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace EscolaOnLine.Services
@@ -25,7 +25,15 @@ namespace EscolaOnLine.Services
         {
             var registerDto = _mapper.Map<RegisterDto>(dto);
             registerDto.Role = "Student"; // Garante que a role seja sempre Student
-            return await _userService.CadastrarAsync(registerDto);
+
+            try
+            {
+                return await _userService.CadastrarAsync(registerDto);
+            }
+            catch (DbUpdateException)
+            {
+                throw new ConflictException("Não foi possível cadastrar estudante devido a um conflito de dados.");
+            }
         }
 
         public async Task<ServiceResult<List<StudentReadSimplificadoDto>>> BuscarTodosAsync(
@@ -115,9 +123,16 @@ namespace EscolaOnLine.Services
                 return ServiceResult.NotFound("Estudante não encontrado.");
 
             _mapper.Map(dto, estudante);
-            await _context.SaveChangesAsync();
 
-            return ServiceResult.NoContent();
+            try
+            {
+                await _context.SaveChangesAsync();
+                return ServiceResult.NoContent();
+            }
+            catch (DbUpdateException)
+            {
+                throw new ConflictException("Não foi possível atualizar estudante devido a um conflito de dados.");
+            }
         }
 
         public async Task<ServiceResult> ApagarAsync(int id, bool apagarDefinitivo = false)
@@ -131,13 +146,20 @@ namespace EscolaOnLine.Services
             if (estudante is null)
                 return ServiceResult.NotFound("Estudante não encontrado."); ;
 
-            if (apagarDefinitivo)
-                _context.Students.Remove(estudante);
-            else
-                estudante.IsDeleted = true;
-           
-            await _context.SaveChangesAsync();
-            return ServiceResult.NoContent();
+            try
+            {
+                if (apagarDefinitivo)
+                    _context.Students.Remove(estudante);
+                else
+                    estudante.IsDeleted = true;
+
+                await _context.SaveChangesAsync();
+                return ServiceResult.NoContent();
+            }
+            catch (DbUpdateException)
+            {
+                throw new ConflictException("Não foi possível excluir estudante devido a um conflito de dados.");
+            }
         }
 
     }

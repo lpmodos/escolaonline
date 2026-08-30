@@ -80,7 +80,7 @@ namespace EscolaOnLine.Controllers
                 var userIdLogado = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
                 if (string.IsNullOrWhiteSpace(userIdLogado))
-                    return Unauthorized();
+                    return Unauthorized(); // 401 — token malformado
 
                 var estudanteResult = await _studentsService.BuscarPorUserIdAsync(userIdLogado);
 
@@ -89,14 +89,16 @@ namespace EscolaOnLine.Controllers
 
                 // Se o estudante tentou enviar um StudentId diferente do dele → bloqueia
                 if (dto.StudentId.HasValue && dto.StudentId.Value > 0 && dto.StudentId != estudanteResult.Dados!.Id)
-                    return Forbid();
+                    return Forbid(); // 403 — tentou matricular outro aluno
 
                 dto.StudentId = estudanteResult.Dados.Id;
             }
             else
             {
                 if (dto.StudentId is null || dto.StudentId <= 0)
-                    return BadRequest(Problem(detail: "StudentId é obrigatório quando o usuário é Admin.", title: "Bad Request"));
+                    return BadRequest(Problem(
+                        detail: "StudentId é obrigatório quando o usuário é Admin.", 
+                        title: "Bad Request"));
             }
 
             return null; // tudo ok

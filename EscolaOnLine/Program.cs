@@ -1,7 +1,9 @@
 using EscolaOnLine.Data;
+using EscolaOnLine.Exceptions.Handler;
 using EscolaOnLine.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -58,10 +60,41 @@ builder.Services.AddAuthentication(options =>
 
         ClockSkew = TimeSpan.Zero // remove a tolerância de 5 minutos
     };
+    options.Events = new JwtBearerEvents
+    {
+        OnChallenge = context =>
+        {
+            context.HandleResponse();
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/problem+json";
+
+            var problem = new ProblemDetails
+            {
+                Status = 401,
+                Title = "Sem Autorização",
+                Detail = "Token ausente, inválido ou expirado.",
+                Instance = context.Request.Path
+            };
+
+            return context.Response.WriteAsJsonAsync(problem);
+        },
+        OnForbidden = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/problem+json";
+
+            var problem = new ProblemDetails
+            {
+                Status = 403,
+                Title = "Sem Permissão",
+                Detail = "Você não tem permissão para acessar este recurso.",
+                Instance = context.Request.Path
+            };
+
+            return context.Response.WriteAsJsonAsync(problem);
+        }
+    };
 });
-
-
-
 
 // Serviços API
 builder.Services.AddControllers();
@@ -96,6 +129,15 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = ctx =>
+    {
+        ctx.ProblemDetails.Instance = ctx.HttpContext.Request.Path;
+        ctx.ProblemDetails.Extensions["traceId"] = ctx.HttpContext.TraceIdentifier;
+    };
+});
+
 builder.Services.AddAutoMapper(cfg => { }, typeof(Program));
 builder.Services.AddScoped<CoursesService>();
 builder.Services.AddScoped<UserService>();
@@ -103,6 +145,7 @@ builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<StudentsService>();
 builder.Services.AddScoped<EnrollmentsService>();
 
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 var app = builder.Build();
 
@@ -111,6 +154,10 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+else
+{
+    app.UseExceptionHandler(); // Em produção o UseExceptionHandler é obrigatório
 }
 
 app.UseHttpsRedirection();
