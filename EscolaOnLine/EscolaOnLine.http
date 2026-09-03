@@ -1,0 +1,130 @@
+@baseUrl = https://localhost:7286
+@token = cole_o_jwt_aqui
+@courseId = 1
+@studentId = 1
+
+### ========== AUTH ==========
+
+### Login (Admin seed)
+# @name login
+POST {{baseUrl}}/User/login
+Content-Type: application/json
+
+{
+  "email": "admin@escolaonline.com",
+  "password": "SenhaDoSeed"
+}
+
+### Refresh
+POST {{baseUrl}}/User/token/refresh
+Content-Type: application/json
+
+{
+  "token": "{{token}}"
+}
+
+### Registrar usuário (requer Admin)
+POST {{baseUrl}}/User/cadastrar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nomeCompleto": "Maria Silva",
+  "email": "maria@example.com",
+  "password": "Senha@123",
+  "role": "Student"
+}
+
+### ========== COURSES ==========
+
+### Listar cursos (público, 20 por página)
+GET {{baseUrl}}/Courses?pagina=1&ordenarPor=data&direcao=desc
+
+### Listar com filtro
+GET {{baseUrl}}/Courses?categoria=Dev&titulo=Algo&pagina=1
+
+### Detalhe
+GET {{baseUrl}}/Courses/{{courseId}}
+
+### Cadastrar (Admin/Instructor)
+POST {{baseUrl}}/Courses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Algoritmos",
+  "descricao": "Introdução a algoritmos",
+  "categoria": "Dev",
+  "cargaHoraria": 3600
+}
+
+### Atualizar (Admin/Instructor)
+PUT {{baseUrl}}/Courses/{{courseId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Algoritmos I",
+  "categoria": "Dev"
+}
+
+### Apagar (Admin)
+DELETE {{baseUrl}}/Courses/{{courseId}}
+Authorization: Bearer {{token}}
+
+### ========== STUDENTS ==========
+
+### Cadastrar estudante
+POST {{baseUrl}}/Students
+Content-Type: application/json
+
+{
+  "nomeCompleto": "João Aluno",
+  "email": "joao@example.com",
+  "password": "Senha@123"
+}
+
+### Listar (Admin)
+GET {{baseUrl}}/Students?pagina=1&nome=Joao&ordenarPor=nome&direcao=desc
+Authorization: Bearer {{token}}
+
+### Me
+GET {{baseUrl}}/Students/me
+Authorization: Bearer {{token}}
+
+### Detalhe
+GET {{baseUrl}}/Students/{{studentId}}
+Authorization: Bearer {{token}}
+
+### Atualizar
+PUT {{baseUrl}}/Students/{{studentId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nomeCompleto": "João da Silva"
+}
+
+### Cursos do estudante
+GET {{baseUrl}}/Students/{{studentId}}/enrollments
+Authorization: Bearer {{token}}
+
+### Soft delete (Admin)
+DELETE {{baseUrl}}/Students/{{studentId}}?apagarDefinitivo=false
+Authorization: Bearer {{token}}
+
+### ========== ENROLLMENTS ==========
+
+### Matricular
+POST {{baseUrl}}/Enrollments
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "courseId": 1,
+  "studentId": 1
+}
+
+### Cancelar matrícula
+DELETE {{baseUrl}}/Enrollments?courseId=1&studentId=1&apagarDefinitivo=false
+Authorization: Bearer {{token}}

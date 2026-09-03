@@ -1,42 +1,93 @@
-Requisitos funcionais:
+# EscolaOnLine API
+API de cursos, estudantes e matrículas desenvolvida com .NET 8, ASP.NET Core Identity e JWT Bearer.
 
--Autenticar usuários (registro/login) e emitir JWT.
--Controlar acesso por papéis: Admin, Instructor, Student.
--Cursos: criar (Admin/Instructor), listar com paginação e filtros (público), detalhar (público), atualizar (Admin/Instructor), remover (Admin).
--Estudantes: criar perfil vinculado ao usuário (Admin), listar (Admin), detalhar/atualizar (Admin ou o próprio), desativar/remover (Admin).
-- Matrículas: matricular estudante autenticado em curso, impedir matrícula duplicada, listar matrículas do próprio estudante (ou Admin).
-- Validações: título de curso ≥ 3 caracteres; e-mail de estudante válido e único.
-- Erros padronizados com status e mensagem clara.
-- Documentação: Swagger com esquema Bearer e exemplos; README com como rodar/testar/autenticar.
+## Pré-requisitos
 
-Requisitos técnicos:
-- .NET 8 + ASP.NET Core Web API (Controllers ou Minimal APIs).
-- EF Core para persistência (SQLite em dev; SQL Server/Postgres em ambientes maiores).
-- ASP.NET Core Identity + JWT Bearer.
-- Configurações por variáveis de ambiente/user-secrets; nenhum segredo no repositório.
-- Migrations aplicadas e seed mínimo (papéis + usuário admin) de forma idempotente.
-- Índices/constraints: e-mail único; unicidade de matrícula (student+course).
-- DTOs separados das entidades; paginação e filtros via query string documentados.
-- Swagger/OpenAPI com Security Scheme Bearer.
-- Repositório GitHub com README de setup/execução.
- HTTPS habilitado e CORS restrito às origens necessárias.
+.NET 8 SDK
+(Opcional) Entity Framework Core CLI:
+> dotnet tool install --global dotnet-ef
 
-🚀 Como rodar o projeto localmente
-1. Clonar o repositório
-> git clone https://github.com/seu-usuario/escola-online.git
+## Como rodar o projeto localmente
+> git clone https://github.com/lpmodos/escola-online.git
 > cd escola-online
-
-2. Restaurar as dependências
 > dotnet restore
-
-3. Aplicar as migrations (criar de dados)
 > dotnet ef database update
-
-4. Executar a aplicação
 > dotnet run
 
+A API estará disponível em https://localhost:[porta]  
 
-Tabelas:
+
+## Acessar o Swagger
+
+Abra no navegador: https://localhost:[porta]/swagger
+(exemplo: https://localhost:7286/swagger/index.html)
+
+
+## Autenticar no Swagger
+
+> Execute a API e acesse: https://localhost:[porta]/swagger
+> Faça um POST em /user/login com e-mail e senha
+> Copie o valor do campo token da resposta
+> Clique no botão Authorize
+> Cole o token no formato Bearer <seu_token> e confirme
+> Agora você pode chamar as rotas protegidas (ícone de cadeado)
+
+## Rodar os testes
+
+> dotnet test
+
+## Exemplos de Requests
+
+Requests de exemplo: [`EscolaOnLine.http`](./EscolaOnLine.http).
+Após o login, copie o `token` para `@token`
+
+## Requisitos Funcionais
+
+- Autenticar usuários (registro e login) e emitir JWT
+- Controle de acesso por papéis: Admin, Instructor e Student
+- Cursos
+- Criar (Admin / Instructor)
+- Listar com paginação e filtros (público)
+- Detalhar (público)
+- Atualizar (Admin / Instructor)
+- Remover (Admin)
+
+- Estudantes
+- Criar perfil vinculado ao usuário (Admin)
+- Listar (Admin)
+- Detalhar / Atualizar (Admin ou o próprio estudante)
+- Desativar / Remover (Admin)
+
+- Matrículas
+- Matricular estudante autenticado em um curso
+- Impedir matrícula duplicada
+- Listar matrículas do próprio estudante (ou Admin)
+
+- Validações:
+	Título do curso ≥ 3 caracteres
+	E-mail de estudante válido e único
+
+- Respostas de erro padronizadas com status HTTP e mensagem clara
+- Documentação Swagger com esquema Bearer e exemplos
+
+## Requisitos Técnicos
+
+- .NET 8 + ASP.NET Core Web API
+- Entity Framework Core (SQLite em desenvolvimento; SQL Server/PostgreSQL em produção)
+- ASP.NET Core Identity + JWT Bearer
+- Configurações via variáveis de ambiente / user-secrets (nenhum segredo no repositório)
+- Migrations aplicadas + seed mínimo (papéis + usuário admin) de forma idempotente
+- Índices e constraints:
+- E-mail único
+- Unicidade de matrícula (Student + Course)
+- DTOs separados das entidades
+- Paginação e filtros via query string
+- Swagger/OpenAPI com Security Scheme Bearer
+- HTTPS habilitado
+- CORS restrito às origens necessárias
+
+
+## Tabelas:
 
 1. Courses
    - Id (PK, int)
@@ -62,74 +113,147 @@ Tabelas:
    - DataMatricula (datetime)
    - IsDeleted (bool)
 
-Regras de negócio:
+## Regras de negócio:
 - Um aluno não pode se matricular duas vezes no mesmo curso (PK composta)
 - Email do aluno deve ser único
 - Carga horária deve ser > 0 e em segundos
 
-
-## 🔐 Autenticação (JWT)
-
-A API utiliza **ASP.NET Core Identity** + **JWT Bearer** para autenticação.
+## Autenticação (JWT)
+A API utiliza ASP.NET Core Identity + JWT Bearer.
 
 ### Roles disponíveis
-- `Admin`
-- `Instructor`
-- `Student`
 
-### Endpoints de Autenticação
+- Admin
+- Instructor
+- Student
+
+### Endpoints de autenticação
 
 #### 1. Registrar novo usuário
-- **Método:** `POST`
-- **Rota:** `/user/cadastrar`
-- **Autenticação:** Não requer
-- **Body (JSON):**
-```json
-{
+
+Método: POST
+Rota: /user/cadastrar
+Autenticação: Não requer
+
+Body:
+text{
   "email": "aluno@email.com",
   "password": "Senha@123",
   "nomeCompleto": "João da Silva",
   "role": "Student"
 }
-- ** Resposta: 201 **
-```json
-{
-   "message": "Usuário registrado com sucesso"
+Resposta (201):
+text{
+  "message": "Usuário registrado com sucesso"
 }
 
 #### 2. Login
-- **Método:** `POST`
-- **Rota:** `/user/login`
-- **Autenticação:** Não requer
-- **Body (JSON):**
-```json
-{
+
+Método: POST
+Rota: /user/login
+Autenticação: Não requer
+
+Body:
+text{
   "email": "aluno@email.com",
-  "password": "Senha@123",
+  "password": "Senha@123"
 }
-- ** Resposta: 200 **
-```json
-{
+Resposta (200):
+text{
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "expiration": "2026-08-08T18:00:00Z",
   "refreshToken": "/user/token/refresh"
 }
-
 
 #### 3. Refresh Token
-- **Método:** `POST`
-- **Rota:** `/user/token/refresh`
-- **Autenticação:** Não requer
-- **Body (JSON):**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-}
 
-- ** Resposta: 200 **
-```json
-{
+Método: POST
+Rota: /user/token/refresh
+Autenticação: Não requer
+
+Body:
+text{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+Resposta (200):
+text{
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "expiration": "2026-08-08T18:00:00Z",
   "refreshToken": "/user/token/refresh"
 }
+
+
+## Erros
+
+### Códigos de status esperados
+
+Status	Significado
+400		Entrada inválida
+401		Não autenticado
+403		Sem permissão
+404		Não encontrado
+409		Conflito (e-mail/matrícula)
+422		Regra de negócio
+
+### Erros padronizados (RFC 7807):
+
+{
+  "type": "https://httpstatuses.com/404",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "Curso não encontrado.",
+  "instance": "/Courses/99"
+}
+
+### Validação (400) / ValidationProblemDetails
+
+{
+  "title": "One or more validation errors occurred.",
+  "status": 400,
+  "errors": {
+    "Titulo": [ "Título deve ter no mínimo 3 caracteres." ]
+  }
+}
+
+
+## Paginação e filtros
+
+### Cursos (`GET /Courses`) — público
+| Query | Default | Notas |
+|-------|---------|--------|
+| `pagina` | 1 | ≥ 1; **20** itens por página |
+| `categoria` | — | igualdade, case-insensitive |
+| `titulo` | — | contém no título |
+| `ordenarPor` | `data` | `titulo` ou `data` |
+| `direcao` | `desc` | `asc` ou `desc` |
+
+Exemplo: `/Courses?pagina=2&categoria=Dev&ordenarPor=titulo&direcao=asc`
+
+### Estudantes (`GET /Students`) — Admin
+| Query | Default | Notas |
+|-------|---------|--------|
+| `pagina` | 1 | ≥ 1; **20** itens |
+| `nome` | — | contém em NomeCompleto |
+| `ordenarPor` | data de cadastro | `nome` ou `id` |
+| `direcao` | `desc` | `asc` ou `desc` |
+
+Exemplo: `/Students?pagina=2&ordenarPor=nome&direcao=asc`
+
+## Banco de Dados
+
+- Utilizado SQlite 
+- Possui Seeder para pré-carregamento de dados inciais (Roles / Usuário Admin), configuração em Data/DBSeeder
+
+## Dependências / Pacotes
+  
+- AutoMapper - 15.1.3
+- Microsoft.AspNetCore.Authentication.JwtBearer - 8.0.29
+- Microsoft.AspNetCore.Identity.EntityFrameworkCore - 8.0.29
+- Microsoft.EntityFrameworkCore - 8.0.29
+- Microsoft.EntityFrameworkCore.Design - 8.0.29
+- Microsoft.EntityFrameworkCore.Sqlite - 8.0.29
+- Microsoft.EntityFrameworkCore.Tools - 8.0.29
+- SQLitePCLRaw.lib.e_sqlite3 - 3.53.3
+- Swashbuckle.AspNetCore - 6.6.2
+
+

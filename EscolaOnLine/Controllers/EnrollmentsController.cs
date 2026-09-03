@@ -22,12 +22,18 @@ namespace EscolaOnLine.Controllers
         }
 
         /// <summary>
-        /// Matricular Aluno em Curso
+        /// Matricular aluno em curso. Aluno autentica e matricula a si mesmo; Admin informa studentId.
         /// </summary>
         /// <param name="dto"></param>
-        /// <returns>IActionResult</returns>
         [HttpPost]
         [Authorize]
+        [ProducesResponseType(typeof(CreatedIdDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
         public async Task<IActionResult> Cadastrar([FromBody] EnrollmentCreateDto dto)
         {
             if (!ModelState.IsValid)
@@ -43,11 +49,19 @@ namespace EscolaOnLine.Controllers
         }
 
         /// <summary>
-        /// Apagar estudante
+        /// Cancelar matrícula. Aluno cancela a própria; Admin pode informar studentId. Hard delete só Admin.
         /// </summary>
-        /// <returns>IActionResult</returns>
+        /// <param name="courseId">Id do Curso.</param>
+        /// <param name="studentId">Id do Estudante.</param>
+        /// <param name="apagarDefinitivo">Apagar em definitivo. Requer credencial Admin</param>
         [HttpDelete]
         [Authorize]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Apagar([FromQuery] int courseId, [FromQuery] int? studentId = null, [FromQuery] bool apagarDefinitivo = false)
         {
             var dto = new EnrollmentCreateDto

@@ -75,13 +75,12 @@ namespace EscolaOnLine.Services
             // Se for Student, cria o registro na tabela Students
             if (dto.Role == "Student")
             {
-                var student = new Student
+                _context.Students.Add(new Student
                 {
                     NomeCompleto = dto.NomeCompleto,
                     UserId = user.Id,
                     DataCadastro = DateTime.UtcNow
-                };
-                _context.Students.Add(student);
+                });
                 await _context.SaveChangesAsync();
             }
 
