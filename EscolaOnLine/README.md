@@ -80,7 +80,7 @@ Abra no navegador: https://localhost:[porta]/swagger
 - Clique no botão Authorize
 - Cole o token no formato Bearer <seu_token> e confirme
 
-![Login](docs/swagger-login.png)
+![Login](Docs/swagger-login.png)
 - Agora você pode chamar as rotas protegidas (ícone de cadeado)
 
 Arquivo de requests: EscolaOnLine.http (copie o token para @token).
