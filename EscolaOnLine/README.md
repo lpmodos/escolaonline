@@ -60,12 +60,12 @@ senha: Senha@123
 Abra no navegador: https://localhost:[porta]/swagger
 (exemplo: https://localhost:7286/swagger/index.html)
 
-![Visão geral](docs/swagger-demo.gif)
+![Visão geral](Docs/swagger-demo.gif)
 
 
 ## Autenticar no Swagger
 
-![Visão geral](docs/swagger-overview.png)
+![Visão geral](Docs/swagger-overview.png)
 
 - Execute a API e acesse: https://localhost:[porta]/swagger
 
@@ -75,7 +75,7 @@ Abra no navegador: https://localhost:[porta]/swagger
   "password": "Senha@123"
 }
 
-![Authorize JWT](docs/swagger-authorize.png)
+![Authorize JWT](Docs/swagger-authorize.png)
 - Copie o valor do campo token da resposta
 - Clique no botão Authorize
 - Cole o token no formato Bearer <seu_token> e confirme
