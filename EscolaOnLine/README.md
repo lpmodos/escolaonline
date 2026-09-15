@@ -1,36 +1,91 @@
 # EscolaOnLine API
-API de cursos, estudantes e matrículas desenvolvida com .NET 8, ASP.NET Core Identity e JWT Bearer.
+API REST para uma escola online: autenticação JWT, cursos, estudantes e matrículas, com controle de acesso por papéis (**Admin**, **Instructor**, **Student**).
 
-## Pré-requisitos
+Objetivo: permitir que administradores e instrutores gerenciem o catálogo de cursos, que alunos se cadastrem e matriculem-se sem duplicidade, e que erros e autenticação sejam consistentes (ProblemDetails + Bearer).
 
-.NET 8 SDK
-(Opcional) Entity Framework Core CLI:
+
+## Requisitos
+
+- [.NET 8 SDK](https://dotnet.microsoft.com/download)
+- Banco em desenvolvimento: **SQLite** (arquivo local via EF Core)
+- Ferramenta de migrations (opcional, mas recomendada):
+
 > dotnet tool install --global dotnet-ef
+
 
 ## Como rodar o projeto localmente
 > git clone https://github.com/lpmodos/escola-online.git
+
 > cd escola-online
+
 > dotnet restore
+
 > dotnet ef database update
+
 > dotnet run
 
 A API estará disponível em https://localhost:[porta]  
 
+## Segredos e configurações (desenvolvimento)
+> dotnet user-secrets init
+
+> dotnet user-secrets set "Jwt:Key" "cole-uma-chave-longa-aqui"
+
+> dotnet user-secrets set "Jwt:Issuer" "EscolaOnLine"
+
+> dotnet user-secrets set "Jwt:Audience" "EscolaOnLine"
+
+> dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Data Source=escola.db"
+
+Os nomes das chaves devem bater com o appsettings.json / Program.cs.
+
+Em CI/produção use variáveis de ambiente equivalentes (Jwt__Key, ConnectionStrings__DefaultConnection).
+
+
+## Migrations
+Criar uma nova migration (depois de alterar entidades):
+> dotnet ef migrations add NomeDaAlteracao
+
+Aplicar no banco local:
+> dotnet ef database update
+
+
+O seed (roles + usuário Admin) roda de forma idempotente na inicialização. Credenciais do admin de desenvolvimento (altere se o seed for outro):
+
+e-mail: admin@escolaonline.com
+senha: Senha@123
 
 ## Acessar o Swagger
 
 Abra no navegador: https://localhost:[porta]/swagger
 (exemplo: https://localhost:7286/swagger/index.html)
 
+![Visão geral](docs/swagger-demo.gif)
+
 
 ## Autenticar no Swagger
 
-> Execute a API e acesse: https://localhost:[porta]/swagger
-> Faça um POST em /user/login com e-mail e senha
-> Copie o valor do campo token da resposta
-> Clique no botão Authorize
-> Cole o token no formato Bearer <seu_token> e confirme
-> Agora você pode chamar as rotas protegidas (ícone de cadeado)
+![Visão geral](docs/swagger-overview.png)
+
+- Execute a API e acesse: https://localhost:[porta]/swagger
+
+- Faça um POST em /user/login com e-mail e senha:
+{
+  "email": "admin@escolaonline.com",
+  "password": "Senha@123"
+}
+
+![Authorize JWT](docs/swagger-authorize.png)
+- Copie o valor do campo token da resposta
+- Clique no botão Authorize
+- Cole o token no formato Bearer <seu_token> e confirme
+
+![Login](docs/swagger-login.png)
+- Agora você pode chamar as rotas protegidas (ícone de cadeado)
+
+Arquivo de requests: EscolaOnLine.http (copie o token para @token).
+
+
 
 ## Rodar os testes
 
@@ -239,6 +294,27 @@ Exemplo: `/Courses?pagina=2&categoria=Dev&ordenarPor=titulo&direcao=asc`
 
 Exemplo: `/Students?pagina=2&ordenarPor=nome&direcao=asc`
 
+## Endpoints principais
+| Método | Rota | Auth / role | Descrição |
+|-------|---------|-----------|--------|
+|POST|/User/login|Anônimo|Login; devolve JWT
+|POST|/User/token/refresh|AnônimoRenova token
+|POST|/User/cadastrar|Admin|Cria usuário (qualquer role)
+|GET|/Courses|Anônimo|Lista cursos (paginado/filtros)
+|GET|/Courses/{id}|Anônimo|Detalhe do curso
+|POST|/Courses|Admin, Instructor|Cria curso
+|PUT|/Courses/{id}|Admin, Instructor|Atualiza curso
+|DELETE|/Courses/{id}|AdminRemove curso|POST/StudentsAnônimo*Cria estudante
+|GET|/Students|Admin|Lista estudantes
+|GET|/Students/me||Autenticado|Perfil do aluno logado
+|GET|/Students/{id}|Admin ou o próprio|Detalhe
+|PUT|/Students/{id}|Admin ou o próprio|Atualiza
+|DELETE|/Students/{id}|Admin|Soft/hard delete
+|GET|/Students/{id}/enrollments|Admin ou o próprio|Cursos do aluno
+|POST|/Enrollments|Autenticado|Matricula (aluno = si mesmo; Admin informa studentId)
+|DELETE|/Enrollments|Autenticado|Cancela matrícula
+
+
 ## Banco de Dados
 
 - Utilizado SQlite 
@@ -255,5 +331,3 @@ Exemplo: `/Students?pagina=2&ordenarPor=nome&direcao=asc`
 - Microsoft.EntityFrameworkCore.Tools - 8.0.29
 - SQLitePCLRaw.lib.e_sqlite3 - 3.53.3
 - Swashbuckle.AspNetCore - 6.6.2
-
-

@@ -26,7 +26,7 @@ namespace EscolaOnLine.Data
             }
 
             // Criar usuário Admin
-            var adminEmail = "lpmodos@gmail.com";
+            var adminEmail = "admin@escolaonline.com";
             var adminUser = await userManager.FindByEmailAsync(adminEmail);
 
             if (adminUser == null)
@@ -38,7 +38,7 @@ namespace EscolaOnLine.Data
                     EmailConfirmed = true
                 };
 
-                var result = await userManager.CreateAsync(adminUser, "Admin@123");
+                var result = await userManager.CreateAsync(adminUser, "Senha@123");
 
                 if (result.Succeeded)
                 {
